@@ -1,5 +1,12 @@
+const fs = require("fs");
+const path = require("path");
+const downloader = require("nodejs-file-downloader");
+
+const outputPath = "";
+
 const FB_URL = "https://graph.facebook.com/v22.0";
-const FB_TOKEN = "";
+const FB_TOKEN ="";
+
 async function getFacebookPhotos() {
         let result = [];
         let url = `${FB_URL}/me/feed?fields=attachments{subattachments}&access_token=${FB_TOKEN}&limit=10`;
@@ -30,35 +37,50 @@ async function fbResToVecString(url, left) {
         return { data, next_url };
 }
 
-async function downloadImage(url, index) {
-        const fs = require("fs");
-        const axios = require("axios");
-        const path = require("path");
-        const fileName = `image_${index + 1}.jpg`;
-        const writer = fs.createWriteStream(path.resolve(__dirname, fileName));
-
-        const response = await axios({
-                url,
-                method: "GET",
-                responseType: "stream",
-        });
-
-        response.data.pipe(writer);
-
-        writer.on("finish", () => {
-                console.log(`Downloaded: ${fileName}`);
-        });
-}
-
-async function main() {
-        const data = await getFacebookPhotos();
-        for (let i = 0; i < data.length; i++) {
-                await downloadImage(data[i], i);
+async function startDownload() {
+        const url = await getFacebookPhotos();
+        for (let picUrl = 0; picUrl < url.length; picUrl++) {
+                await new downloader({
+                        url: url[picUrl],
+                        directory: "./downloads",
+                        fileName: `${picUrl}.png`,
+                        cloneFiles: false,
+                }).download();
+                try {
+                        console.log("All done");
+                } catch (error) {
+                        console.log("Download failed", error);
+                }
         }
 }
 
+async function main() {
+        await startDownload();
+        const currentDir = process.cwd();
+        const downloadsPath = path.join(currentDir, "downloads");
+        fs.readdir(downloadsPath, (err, files) => {
+                if (err) {
+                        console.error("Error reading directory:", err);
+                        return;
+                }
+                console.log("Files in Downloads directory:", files);
+
+                for (let file of files) {
+                        const sourceFile = path.join(downloadsPath, file);
+                        const destFile = path.join(outputPath, file);
+
+                        fs.copyFile(sourceFile, destFile, (writeError) => {
+                                if (writeError) {
+                                        console.error(
+                                                `Error copying ${file} to output:`,
+                                                writeError
+                                        );
+                                } else {
+                                        console.log(`Successfully copied ${file} to ${outputPath}`);
+                                }
+                        });
+                }
+        });
+}
+
 main();
-
-
-Log in or sign up to view
-https://graph.facebook.com
